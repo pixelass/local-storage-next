@@ -8,16 +8,21 @@ import {useCallback, useEffect, useState} from 'react';
  *
  * @param {string} key
  * @param {unknown} initialState
- * @returns {[unknown, (value: unknown) => void]}
+ * @returns {[unknown, function(value: unknown): void | function(fn: function(previousValue: unknown): void): void]}
  */
 function useLocalStorage(key, initialState) {
   // Set the desired initialState
   const [state, setState] = useState(initialState);
 
   // Provide a custom setter function that updates the state and writes to localStorage
-  const setState_ = useCallback((value) => {
-    setState(value)
-    window.localStorage.setItem(key, value)
+  const setStateAndLocalStorage = useCallback((callbackOrValue) => {
+    setState(previousValue => {
+      // The value might be a callback with the previousValue
+      const nextValue = typeof callbackOrValue === "function" ? callbackOrValue(previousValue) : callbackOrValue;
+      // Set the localStorage here (inside the original setter)
+      window.localStorage.setItem(key, JSON.stringify(nextValue));
+      return nextValue;
+    })
   }, [key]);
 
   // Read the localStorage from the client
@@ -30,7 +35,7 @@ function useLocalStorage(key, initialState) {
     }
   }, [key]);
 
-  return [state, setState_]
+  return [state, setStateAndLocalStorage]
 }
 
 export default function Home() {
@@ -39,11 +44,13 @@ export default function Home() {
   return (
     <div>
       <button aria-label="decrement" onClick={() => {
+        // Testing the default method
         setCounter(counter - 1)
       }}>-</button>
       <span>{counter}</span>
       <button aria-label="increment" onClick={() => {
-        setCounter(counter + 1)
+        // Testing the callback method
+        setCounter(previousValue =>previousValue + 1 )
       }}>+</button>
     </div>
   )
